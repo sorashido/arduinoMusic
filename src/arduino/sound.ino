@@ -16,24 +16,38 @@ significant bit) at this FS setting, so the raw reading of
 
 #include <Wire.h>
 #include <LSM6.h>
+#include <Kalman.h>
 
-LSM6 imu;
+//IMU
+LSM6 imu;//生データ
+double accX, accY, accZ;
+double gyroX, gyroY, gyroZ;
+
+//Filter
+//Angle
+Kalman kalmanX;
+Kalman kalmanY;
+
+double gyroXangle, gyroYangle; // Angle calculate using the gyro only
+double compAngleX, compAngleY; // Calculated angle using a complementary filter
+double kalAngleX, kalAngleY; // Calculated angle using a Kalman filter
+
+uint32_t timer;
+
+
+//Velocity
+double velX, velY, velZ = 0;
+double comAccX,comAccY,comAccZ=0;  
+double gravityX, gravityY, gravityZ=0;
+
+const double alpha = 0.8;//lowpassfilter
+
+//Log
 char report[80];
 
+//Sound
 const int sound_pin = 8;
 int sounds[] = {262, 294, 330, 349, 392, 440, 494, 523};
-int v = 0;
-
-int sensorPin=0;
-
-struct IMUStruct{
-  int ax;
-  int ay;
-  int az;
-  int gx;
-  int gy;
-  int gz;
-};
 
 void setup()
 {
@@ -48,162 +62,198 @@ void setup()
   imu.enableDefault();
 
   pinMode(sound_pin, OUTPUT);
-}
 
+  delay(100);//Wait for sensor to stablize
+
+  imu.read();
+  //  Low Pass Filter
+  accX = imu.a.x;// * alpha + (imuValue.ax * (1.0 -alpha));
+  accY = imu.a.y;// * alpha + (imuValue.ay * (1.0 -alpha));
+  accZ = imu.a.z;// * alpha + (imuValue.az * (1.0 -alpha));
+  gyroX = imu.g.x;// * alpha + (imuValue.gx * (1.0 -alpha));
+  gyroY = imu.g.y;// * alpha + (imuValue.gy * (1.0 -alpha));
+  gyroZ = imu.g.z;// * alpha + (imuValue.gz * (1.0 -alpha));
+
+  double roll  = atan2(accY, accZ) * RAD_TO_DEG;
+  double pitch = atan(-accX / sqrt(accY * accY + accZ * accZ)) * RAD_TO_DEG;
+
+  kalmanX.setAngle(roll); // Set starting angle
+  kalmanY.setAngle(pitch);
+  gyroXangle = roll;
+  gyroYangle = pitch;
+  compAngleX = roll;
+  compAngleY = pitch;
+
+  timer = micros();
+}
 
 void loop()
 {
-  static IMUStruct old_imu;
+  imu.read();
 
-  IMUStruct aveimu; 
-//  for(int i=0; i<100; i++){
-    imu.read();
-    
-    aveimu.ax = imu.a.x;
-    aveimu.ay = imu.a.y;
-    aveimu.az = imu.a.z;
-    aveimu.gx = imu.g.x;
-    aveimu.gy = imu.g.y;
-    aveimu.gz = imu.g.z;
-//  }
+  accX = imu.a.x;// * alpha + (imuValue.ax * (1.0 -alpha));
+  accY = imu.a.y;// * alpha + (imuValue.ay * (1.0 -alpha));
+  accZ = imu.a.z;// * alpha + (imuValue.az * (1.0 -alpha));
+  gyroX = imu.g.x;// * alpha + (imuValue.gx * (1.0 -alpha));
+  gyroY = imu.g.y;// * alpha + (imuValue.gy * (1.0 -alpha));
+  gyroZ = imu.g.z;// * alpha + (imuValue.gz * (1.0 -alpha));
 
-//  aveimu.ax/=100;
-//  aveimu.ay/=100;
-//  aveimu.az/=100;
-//  aveimu.gx/=100;
-//  aveimu.gy/=100;
-//  aveimu.gz/=100;
-
-//  if()
-
-  int value=analogRead(sensorPin);
-
-  IMUStruct diff;
-  diff.ax = (old_imu.ax - aveimu.ax)^2;
-  diff.ay = (old_imu.ay - aveimu.ay)^2;
-  diff.az = (old_imu.az - aveimu.az)^2;
-  diff.gx = (old_imu.gx - aveimu.gx)^2;
-  diff.gy = (old_imu.gy - aveimu.gy)^2;
-  diff.gz = (old_imu.gz - aveimu.gz)^2;
-
-  if(diff.ax <200){diff.ax = 0;}
-  if(diff.ay <200){diff.ay = 0;}
-  if(diff.az <200){diff.az = 0;}
-  if(diff.gx <500){diff.gz = 0;}
-  if(diff.gy <500){diff.gy = 0;}
-  if(diff.gz <500){diff.gz = 0;}
   
-  int absDiff = abs(diff.ax)+abs(diff.ay)+abs(diff.az); 
+  double dt = (double)(micros() - timer) / 1000000; // Calculate delta time
+  timer = micros();
 
-//  snprintf(report, sizeof(report), "D:%6d", //A: %6d %6d %6d    G: %6d %6d %6d",
-//    imu.a.x, imu.a.y, imu.a.z,
-//    imu.g.x, imu.g.y, imu.g.z,
+  /*角度を求める kalman Filter*/
+  double roll  = atan2(accY, accZ) * RAD_TO_DEG;
+  double pitch = atan(-accX / sqrt(accY * accY + accZ * accZ)) * RAD_TO_DEG;
+  
+  double gyroXrate = gyroX / 131.0; // Convert to deg/s
+  double gyroYrate = gyroY / 131.0; // Convert to deg/s
 
-//    aveimu.ax, aveimu.ay, aveimu.az,
-//    aveimu.gx, aveimu.gy, aveimu.gz
+  if ((roll < -90 && kalAngleX > 90) || (roll > 90 && kalAngleX < -90)) {
+    kalmanX.setAngle(roll);
+    compAngleX = roll;
+    kalAngleX = roll;
+    gyroXangle = roll;
+  } else
+    kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
 
-//    diff.ax, diff.ay, diff.az,
-//    diff.gx, diff.gy, diff.gz
-//    absDiff
+  if (abs(kalAngleX) > 90)
+    gyroYrate = -gyroYrate; // Invert rate, so it fits the restriced accelerometer reading
+  kalAngleY = kalmanY.getAngle(pitch, gyroYrate, dt);
+
+  gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
+  gyroYangle += gyroYrate * dt;
+//  gyroXangle += kalmanX.getRate() * dt; // Calculate gyro angle using the unbiased rate
+//  gyroYangle += kalmanY.getRate() * dt;
+
+  compAngleX = 0.93 * (compAngleX + gyroXrate * dt) + 0.07 * roll; // Calculate the angle using a Complimentary filter
+  compAngleY = 0.93 * (compAngleY + gyroYrate * dt) + 0.07 * pitch;
+
+  // Reset the gyro angle when it has drifted too much
+  if (gyroXangle < -180 || gyroXangle > 180)
+    gyroXangle = kalAngleX;
+  if (gyroYangle < -180 || gyroYangle > 180)
+    gyroYangle = kalAngleY;
+
+
+  /*速度を求める*/
+  gravityX = alpha * gravityX + (1 - alpha) * accX;
+  gravityY = alpha * gravityY + (1 - alpha) * accY;
+  gravityZ = alpha * gravityZ + (1 - alpha) * accZ;
+
+  comAccX = accX - gravityX;
+  comAccY = accY - gravityY;
+  comAccZ = accZ - gravityZ;
+
+  if(abs(comAccX) < 200)comAccX = 0;
+  if(abs(comAccY) < 200)comAccY = 0;
+  if(abs(comAccZ) < 200)comAccZ = 0;
+
+  velX = velX + comAccX*dt;
+  velY = velY + comAccY*dt;
+  velZ = velZ + comAccZ*dt;
+
+  if(abs(velX) < 200)velX = 0;
+  if(abs(velY) < 200)velY = 0;
+  if(abs(velZ) < 200)velZ = 0;
+  if(abs(comAccX) < 1)velX = 0;
+  if(abs(comAccY) < 1)velY = 0;
+  if(abs(comAccZ) < 1)velZ = 0;
+
+  Serial.print(velX); Serial.print("\t");
+  Serial.print(velY); Serial.print("\t");
+  Serial.print(velZ); Serial.print("\t");
+
+  Serial.print(comAccX); Serial.print("\t");
+  Serial.print(comAccY); Serial.print("\t");
+  Serial.print(comAccZ); Serial.print("\t");
+  Serial.print("\r\n");
+    
+//  Serial.print(roll); Serial.print("\t");
+//  Serial.print(gyroXangle); Serial.print("\t");
+//  Serial.print(compAngleX); Serial.print("\t");
+//  Serial.print(kalAngleX); Serial.print("\t");
+//
+//  Serial.print("\t");
+//
+//  Serial.print(pitch); Serial.print("\t");
+//  Serial.print(gyroYangle); Serial.print("\t");
+//  Serial.print(compAngleY); Serial.print("\t");
+//  Serial.print(kalAngleY); Serial.print("\t");
+//  Serial.print("\r\n");
+
+  delay(2);
+
+//  IMUStruct diff;
+//  diff.ax = (old_imu.ax - imuValue.ax);
+//  diff.ay = (old_imu.ay - imuValue.ay);
+//  diff.az = (old_imu.az - imuValue.az);
+//  diff.gx = (old_imu.gx - imuValue.gx);
+//  diff.gy = (old_imu.gy - imuValue.gy);
+//  diff.gz = (old_imu.gz - imuValue.gz);
+//  if(diff.ax <10){diff.ax = 0;}
+//  if(diff.ay <10){diff.ay = 0;}
+//  if(diff.az <10){diff.az = 0;}
+//  if(diff.gx <10){diff.gz = 0;}
+//  if(diff.gy <10){diff.gy = 0;}
+//  if(diff.gz <10){diff.gz = 0;}  
+
+//  int absDiff = abs(diff.ax)+abs(diff.ay)+abs(diff.az); 
+//  snprintf(report, sizeof(report), "A: %d %d %d    G: %d %d %d",
+////    imu.a.x, imu.a.y, imu.a.z,
+////    imu.g.x, imu.g.y, imu.g.z    
+//
+//    imuValue.ax, imuValue.ay, imuValue.az,
+//    imuValue.gx, imuValue.gy, imuValue.gz
+////
+////    diff.ax, diff.ay, diff.az,
+////    diff.gx, diff.gy, diff.gz
+////    absDiff
 //    );
 //  Serial.println(report);
+}
 
-  static int Acount = 0;
-  static int Bcount = 0;
-  static int Ccount = 0;
+void fastSound(){
+//     tone(sound_pin, sounds[0], 300);
+//    delay(300);
+//    tone(sound_pin, sounds[1], 300);
+//    delay(300);
+//    tone(sound_pin, sounds[2], 300);
+//    delay(300);
+//    tone(sound_pin, sounds[3], 300);
+//    delay(300);
+//    tone(sound_pin, sounds[4], 300);
+//    delay(300);
+//    tone(sound_pin, sounds[5], 300);
+//    delay(300);
+//    tone(sound_pin, sounds[6], 300);
+//    delay(300);
+//    tone(sound_pin, sounds[7], 300);
+//    Serial.println("3");
+//    Acount = 0;
+//    Bcount = 0;
+//    Ccount = 0;
+//    delay(300);
 
-  if(absDiff > 8000){
-    Acount += 1;
-  }else if(absDiff > 4500){
-    Bcount += 1;
-  }else if(absDiff > 2500){
-    Ccount += 1;
-  }else{
-    Acount = 0;
-    Bcount = 0;
-    Ccount = 0;
-  }
-
-  if(Acount > 3){
-    tone(sound_pin, sounds[0], 200);
-    delay(50);
-    tone(sound_pin, sounds[7], 200);
-    delay(50);
-    tone(sound_pin, sounds[0], 200);
-    delay(50);
-    tone(sound_pin, sounds[7], 200);
-    delay(50);
-    tone(sound_pin, sounds[0], 200);
-    delay(50);
-    imu.read();
-    Serial.println("1");
-    Acount = 0;
-    Bcount = 0;
-    Ccount = 0;
-    delay(300);
-  }
-  else if(Bcount > 3){
-    tone(sound_pin, sounds[7], 300);
-    delay(150);
-    tone(sound_pin, sounds[6], 300);
-    delay(150);
-    tone(sound_pin, sounds[5], 300);
-    delay(150);
-    tone(sound_pin, sounds[4], 300);
-    delay(150);
-    tone(sound_pin, sounds[3], 300);
-    delay(150);
-    tone(sound_pin, sounds[2], 300);
-    delay(150);
-    tone(sound_pin, sounds[1], 300);
-    delay(150);
-    tone(sound_pin, sounds[0], 300);
-    delay(150);  
-    Serial.println("2");
-    Acount = 0;
-    Bcount = 0;
-    Ccount = 0;
-    delay(300);
-//    imu.read();
-  }else if(Ccount > 3){
-     tone(sound_pin, sounds[0], 300);
-    delay(300);
-    tone(sound_pin, sounds[1], 300);
-    delay(300);
-    tone(sound_pin, sounds[2], 300);
-    delay(300);
-    tone(sound_pin, sounds[3], 300);
-    delay(300);
-    tone(sound_pin, sounds[4], 300);
-    delay(300);
-    tone(sound_pin, sounds[5], 300);
-    delay(300);
-    tone(sound_pin, sounds[6], 300);
-    delay(300);
-    tone(sound_pin, sounds[7], 300);
-    Serial.println("3");
-    Acount = 0;
-    Bcount = 0;
-    Ccount = 0;
-    delay(300);
-//    imu.read();
-  }
-
-  old_imu.ax = aveimu.ax;
-  old_imu.ay = aveimu.ay;
-  old_imu.az = aveimu.az;
-  old_imu.gx = aveimu.gx;
-  old_imu.gy = aveimu.gy;
-  old_imu.gz = aveimu.gz;
-
-  imu.read();
-  
-//  if(imu.a.x>5000&&imu.a.y<2000){//&&value>650&&value<660){
-//  }
-//
-//  if(imu.a.x>3000&&imu.a.y>3000){//&&value>650&&value<660){
-//  }
-
-//  if(imu.a.x<2000&&imu.a.y>5000){//&&value>650&&value<660){
-//  }
+  //    tone(sound_pin, sounds[7], 300);
+//    delay(150);
+//    tone(sound_pin, sounds[6], 300);
+//    delay(150);
+//    tone(sound_pin, sounds[5], 300);
+//    delay(150);
+//    tone(sound_pin, sounds[4], 300);
+//    delay(150);
+//    tone(sound_pin, sounds[3], 300);
+//    delay(150);
+//    tone(sound_pin, sounds[2], 300);
+//    delay(150);
+//    tone(sound_pin, sounds[1], 300);
+//    delay(150);
+//    tone(sound_pin, sounds[0], 300);
+//    delay(150);  
+//    Serial.println("2");
+//    Acount = 0;
+//    Bcount = 0;
+//    Ccount = 0;
+//    delay(300);
 }
