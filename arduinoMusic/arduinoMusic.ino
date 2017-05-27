@@ -47,7 +47,6 @@ char report[80];
 
 //Sound
 const int sound_pin = 8;
-int sounds[] = {262, 294, 330, 349, 392, 440, 494, 523};
 
 void setup()
 {
@@ -135,12 +134,13 @@ void loop()
   if (gyroYangle < -180 || gyroYangle > 180)
     gyroYangle = kalAngleY;
 
-
   /*速度を求める*/
+  // 重力加速度を求める
   gravityX = alpha * gravityX + (1 - alpha) * accX;
   gravityY = alpha * gravityY + (1 - alpha) * accY;
   gravityZ = alpha * gravityZ + (1 - alpha) * accZ;
 
+  // 補正した加速度
   comAccX = accX - gravityX;
   comAccY = accY - gravityY;
   comAccZ = accZ - gravityZ;
@@ -160,14 +160,15 @@ void loop()
   if(abs(comAccY) < 1)velY = 0;
   if(abs(comAccZ) < 1)velZ = 0;
 
-  Serial.print(velX); Serial.print("\t");
-  Serial.print(velY); Serial.print("\t");
-  Serial.print(velZ); Serial.print("\t");
+  fastSound();
 
-  Serial.print(comAccX); Serial.print("\t");
-  Serial.print(comAccY); Serial.print("\t");
-  Serial.print(comAccZ); Serial.print("\t");
-  Serial.print("\r\n");
+/*print*/
+//  Serial.print(velX); Serial.print("\t");
+//  Serial.print(velY); Serial.print("\t");
+//  Serial.print(velZ); Serial.print("\t");
+//  Serial.print(comAccX); Serial.print("\t");
+//  Serial.print(comAccY); Serial.print("\t");
+//  Serial.print(comAccZ); Serial.print("\t");
     
 //  Serial.print(roll); Serial.print("\t");
 //  Serial.print(gyroXangle); Serial.print("\t");
@@ -180,10 +181,13 @@ void loop()
 //  Serial.print(gyroYangle); Serial.print("\t");
 //  Serial.print(compAngleY); Serial.print("\t");
 //  Serial.print(kalAngleY); Serial.print("\t");
+
 //  Serial.print("\r\n");
 
   delay(2);
+}
 
+/*comment out*/
 //  IMUStruct diff;
 //  diff.ax = (old_imu.ax - imuValue.ax);
 //  diff.ay = (old_imu.ay - imuValue.ay);
@@ -211,49 +215,4 @@ void loop()
 ////    absDiff
 //    );
 //  Serial.println(report);
-}
 
-void fastSound(){
-//     tone(sound_pin, sounds[0], 300);
-//    delay(300);
-//    tone(sound_pin, sounds[1], 300);
-//    delay(300);
-//    tone(sound_pin, sounds[2], 300);
-//    delay(300);
-//    tone(sound_pin, sounds[3], 300);
-//    delay(300);
-//    tone(sound_pin, sounds[4], 300);
-//    delay(300);
-//    tone(sound_pin, sounds[5], 300);
-//    delay(300);
-//    tone(sound_pin, sounds[6], 300);
-//    delay(300);
-//    tone(sound_pin, sounds[7], 300);
-//    Serial.println("3");
-//    Acount = 0;
-//    Bcount = 0;
-//    Ccount = 0;
-//    delay(300);
-
-  //    tone(sound_pin, sounds[7], 300);
-//    delay(150);
-//    tone(sound_pin, sounds[6], 300);
-//    delay(150);
-//    tone(sound_pin, sounds[5], 300);
-//    delay(150);
-//    tone(sound_pin, sounds[4], 300);
-//    delay(150);
-//    tone(sound_pin, sounds[3], 300);
-//    delay(150);
-//    tone(sound_pin, sounds[2], 300);
-//    delay(150);
-//    tone(sound_pin, sounds[1], 300);
-//    delay(150);
-//    tone(sound_pin, sounds[0], 300);
-//    delay(150);  
-//    Serial.println("2");
-//    Acount = 0;
-//    Bcount = 0;
-//    Ccount = 0;
-//    delay(300);
-}
