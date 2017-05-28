@@ -2,48 +2,106 @@
 //Sound
 int sounds[] = {262, 294, 330, 349, 392, 440, 494, 523};
 
-void fastSound(){
-//     tone(sound_pin, sounds[0], 300);
-//    delay(300);
-//    tone(sound_pin, sounds[1], 300);
-//    delay(300);
-//    tone(sound_pin, sounds[2], 300);
-//    delay(300);
-//    tone(sound_pin, sounds[3], 300);
-//    delay(300);
-//    tone(sound_pin, sounds[4], 300);
-//    delay(300);
-//    tone(sound_pin, sounds[5], 300);
-//    delay(300);
-//    tone(sound_pin, sounds[6], 300);
-//    delay(300);
-//    tone(sound_pin, sounds[7], 300);
-//    Serial.println("3");
-//    Acount = 0;
-//    Bcount = 0;
-//    Ccount = 0;
-//    delay(300);
+/*音階*/
+#define l_do sounds[0]
+#define re sounds[1]
+#define mi sounds[2]
+#define fa sounds[3]
+#define sol sounds[4]
+#define la sounds[5]
+#define si sounds[6]
+#define h_do sounds[7]
 
-  //    tone(sound_pin, sounds[7], 300);
-//    delay(150);
-//    tone(sound_pin, sounds[6], 300);
-//    delay(150);
-//    tone(sound_pin, sounds[5], 300);
-//    delay(150);
-//    tone(sound_pin, sounds[4], 300);
-//    delay(150);
-//    tone(sound_pin, sounds[3], 300);
-//    delay(150);
-//    tone(sound_pin, sounds[2], 300);
-//    delay(150);
-//    tone(sound_pin, sounds[1], 300);
-//    delay(150);
-//    tone(sound_pin, sounds[0], 300);
-//    delay(150);  
-//    Serial.println("2");
-//    Acount = 0;
-//    Bcount = 0;
-//    Ccount = 0;
-//    delay(300);
+void sound1(int speed){
+    tone(sound_pin, la, 300);
+    delay(speed);
+    tone(sound_pin, mi, 300);
+    delay(speed);
+    tone(sound_pin, fa, 300);
+    delay(speed);
+    tone(sound_pin, mi, 300);
+    delay(speed);
+    tone(sound_pin, l_do, 300);
+    delay(speed);
+    tone(sound_pin, re, 300);
+    delay(speed);
+    tone(sound_pin, si, 300);
+    delay(speed);
 }
+
+void sound2(int speed){
+    tone(sound_pin, mi, 300);
+    delay(speed);
+    delay(speed/2);
+    tone(sound_pin, re, 300);
+    delay(speed);
+    tone(sound_pin, l_do, 300);
+    delay(speed);
+    tone(sound_pin, re, 300);
+    delay(speed);
+    delay(speed/2);
+    tone(sound_pin, l_do, 300);
+    delay(speed);
+    tone(sound_pin, si, 300);
+    delay(speed);
+    tone(sound_pin, l_do, 300);
+    delay(speed);
+    tone(sound_pin, si, 300);
+    delay(speed);
+    tone(sound_pin, sol, 300);
+    delay(speed);
+    tone(sound_pin, sol, 300);
+    delay(speed);
+    tone(sound_pin, la, 300);
+    delay(speed);    
+}
+
+void sound3(int speed){
+    tone(sound_pin, la, 300);
+    delay(speed);
+    delay(speed/2);
+    tone(sound_pin, la, 300);
+    delay(speed);
+    tone(sound_pin, si, 300);
+    delay(speed);
+    tone(sound_pin, h_do, 300);
+    delay(speed);
+    tone(sound_pin, re, 300);
+    delay(speed);
+    tone(sound_pin, sol, 300);
+    delay(speed);
+    delay(speed/2);
+    tone(sound_pin, mi, 300);
+    delay(speed);
+    tone(sound_pin, re, 300);
+    delay(speed);
+    tone(sound_pin, h_do, 300);
+    delay(speed);
+    tone(sound_pin, si, 300);
+    delay(speed);
+}
+
+void sound4(int speed){
+    tone(sound_pin, la, 300);
+    delay(speed);
+    tone(sound_pin, la, 300);
+    delay(speed);
+    tone(sound_pin, l_do, 300);
+    delay(speed);
+    tone(sound_pin, re, 300);
+    delay(speed);
+    tone(sound_pin, mi, 300);
+    delay(speed);
+    tone(sound_pin, mi, 300);
+    delay(speed);
+    tone(sound_pin, fa, 300);
+    delay(speed);
+    tone(sound_pin, mi, 300);
+    delay(speed);
+}
+
+
+//void baseSound(){
+//  
+//}
 

@@ -31,12 +31,14 @@ Kalman kalmanY;
 double gyroXangle, gyroYangle; // Angle calculate using the gyro only
 double compAngleX, compAngleY; // Calculated angle using a complementary filter
 double kalAngleX, kalAngleY; // Calculated angle using a Kalman filter
+double kalDAngleX, kalDAngleY;
 
 uint32_t timer;
 
-
 //Velocity
 double velX, velY, velZ = 0;
+double comVelX, comVelY, comVelZ = 0;
+
 double comAccX,comAccY,comAccZ=0;  
 double gravityX, gravityY, gravityZ=0;
 
@@ -120,10 +122,10 @@ void loop()
     gyroYrate = -gyroYrate; // Invert rate, so it fits the restriced accelerometer reading
   kalAngleY = kalmanY.getAngle(pitch, gyroYrate, dt);
 
-  gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
-  gyroYangle += gyroYrate * dt;
-//  gyroXangle += kalmanX.getRate() * dt; // Calculate gyro angle using the unbiased rate
-//  gyroYangle += kalmanY.getRate() * dt;
+//  gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
+//  gyroYangle += gyroYrate * dt;
+  gyroXangle += kalmanX.getRate() * dt; // Calculate gyro angle using the unbiased rate
+  gyroYangle += kalmanY.getRate() * dt;
 
   compAngleX = 0.93 * (compAngleX + gyroXrate * dt) + 0.07 * roll; // Calculate the angle using a Complimentary filter
   compAngleY = 0.93 * (compAngleY + gyroYrate * dt) + 0.07 * pitch;
@@ -145,22 +147,116 @@ void loop()
   comAccY = accY - gravityY;
   comAccZ = accZ - gravityZ;
 
-  if(abs(comAccX) < 200)comAccX = 0;
-  if(abs(comAccY) < 200)comAccY = 0;
-  if(abs(comAccZ) < 200)comAccZ = 0;
+  if(abs(comAccX) < 100)comAccX = 0;
+  if(abs(comAccY) < 100)comAccY = 0;
+  if(abs(comAccZ) < 100)comAccZ = 0;
 
+  kalDAngleX = kalmanX.getRate();
+  kalDAngleY = kalmanY.getRate();
+  if((abs(kalDAngleX) > 100) || (abs(kalDAngleY) > 100))comAccX = 0;
+  if((abs(kalDAngleX) > 100) || (abs(kalDAngleY) > 100))comAccY = 0;
+  if((abs(kalDAngleX) > 100) || (abs(kalDAngleY) > 100))comAccZ = 0;
+
+  if(dt > 1.0)dt = 0.01;
   velX = velX + comAccX*dt;
   velY = velY + comAccY*dt;
   velZ = velZ + comAccZ*dt;
 
-  if(abs(velX) < 200)velX = 0;
-  if(abs(velY) < 200)velY = 0;
-  if(abs(velZ) < 200)velZ = 0;
+  if(abs(velX) < 10)velX = 0;
+  if(abs(velY) < 10)velY = 0;
+  if(abs(velZ) < 10)velZ = 0;
   if(abs(comAccX) < 1)velX = 0;
   if(abs(comAccY) < 1)velY = 0;
   if(abs(comAccZ) < 1)velZ = 0;
 
-  fastSound();
+  double velocity = sqrt(pow(velX,2) + pow(velY,2) + pow(velZ,2));
+
+  static int fastCount = 0;
+  static int middleCount = 0;
+  static int slowCount = 0;
+  if(velocity > 1000){
+    fastCount += 1;
+  }else if(velocity > 400){
+    middleCount += 1;
+  }else if(velocity > 200){
+    slowCount += 1;    
+  }else{
+    fastCount = 0;
+    middleCount = 0;
+    slowCount = 0;
+  }
+
+  if(fastCount > 3){
+//    fastSound();    
+    Serial.print("fast\n");
+
+    if(abs(kalAngleX) > 135){
+      //音色1
+      sound1(100);
+    }
+    else if(abs(kalAngleX) < 45){
+      //音色2
+      sound2(100);
+    }else if(kalAngleX >0){
+      //音色3 
+      sound3(100);     
+    }else{
+      //音色4
+      sound4(100);
+    }
+
+    fastCount = -50;
+    middleCount = -50;
+    slowCount = -50;
+
+  }
+  if(middleCount > 5){
+//    middleSound();
+    Serial.print("middle\n");
+
+    if(abs(kalAngleX) > 135){
+      //音色1
+      sound1(200);
+    }
+    else if(abs(kalAngleX) < 45){
+      //音色2
+      sound2(200);
+    }else if(kalAngleX >0){
+      //音色3 
+      sound3(200);     
+    }else{
+      //音色4
+      sound4(200);
+    }
+
+    fastCount = -50;
+    middleCount = -50;
+    slowCount = -50;    
+
+  }
+  if(slowCount > 15){
+    Serial.print("slow\n");
+
+    if(abs(kalAngleX) > 135){
+      //音色1
+      sound1(300);
+    }
+    else if(abs(kalAngleX) < 45){
+      //音色2
+      sound2(300);
+    }else if(kalAngleX >0){
+      //音色3 
+      sound3(300);     
+    }else{
+      //音色4
+      sound4(300);
+    }
+
+    fastCount = -50;
+    middleCount = -50;
+    slowCount = -50;
+    
+  }
 
 /*print*/
 //  Serial.print(velX); Serial.print("\t");
@@ -169,11 +265,17 @@ void loop()
 //  Serial.print(comAccX); Serial.print("\t");
 //  Serial.print(comAccY); Serial.print("\t");
 //  Serial.print(comAccZ); Serial.print("\t");
+//  Serial.print(kalmanX.getRate()); Serial.print("\t");
+//  Serial.print(kalmanY.getRate()); Serial.print("\t");
+
+  Serial.print(velocity); Serial.print("\t");
+  Serial.print(dt); Serial.print("\t");
     
 //  Serial.print(roll); Serial.print("\t");
 //  Serial.print(gyroXangle); Serial.print("\t");
 //  Serial.print(compAngleX); Serial.print("\t");
 //  Serial.print(kalAngleX); Serial.print("\t");
+//  Serial.print(kalAngleY); Serial.print("\t");
 //
 //  Serial.print("\t");
 //
@@ -182,7 +284,9 @@ void loop()
 //  Serial.print(compAngleY); Serial.print("\t");
 //  Serial.print(kalAngleY); Serial.print("\t");
 
-//  Serial.print("\r\n");
+//  Serial.print(tan((kalAngleX*DEG_TO_RAD)/(kalAngleY*DEG_TO_RAD))); Serial.print("\t");
+
+  Serial.print("\r\n");
 
   delay(2);
 }
