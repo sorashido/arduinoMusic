@@ -100,6 +100,15 @@ void sound4(int speed){
     delay(speed);
 }
 
+void soundL(int speed){
+    tone(sound_pin, la, 300);
+    delay(speed);
+}
+
+void soundR(int speed){
+  tone(sound_pin, sol, 300);
+  delay(speed);
+}
 
 //void baseSound(){
 //  

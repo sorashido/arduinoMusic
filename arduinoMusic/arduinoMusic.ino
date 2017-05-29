@@ -67,8 +67,8 @@ void setup()
   delay(100);//Wait for sensor to stablize
 
   imu.read();
-  //  Low Pass Filter
-  accX = imu.a.x;// * alpha + (imuValue.ax * (1.0 -alpha));
+  
+  accX = imu.a.x;// * alpha + (imuValue.ax * (1.0 -alpha));  //  Low Pass Filter
   accY = imu.a.y;// * alpha + (imuValue.ay * (1.0 -alpha));
   accZ = imu.a.z;// * alpha + (imuValue.az * (1.0 -alpha));
   gyroX = imu.g.x;// * alpha + (imuValue.gx * (1.0 -alpha));
@@ -101,6 +101,7 @@ void loop()
 
   
   double dt = (double)(micros() - timer) / 1000000; // Calculate delta time
+  dt = 0.01; //dtが固定のほうが安定するので..
   timer = micros();
 
   /*角度を求める kalman Filter*/
@@ -153,11 +154,7 @@ void loop()
 
   kalDAngleX = kalmanX.getRate();
   kalDAngleY = kalmanY.getRate();
-  if((abs(kalDAngleX) > 100) || (abs(kalDAngleY) > 100))comAccX = 0;
-  if((abs(kalDAngleX) > 100) || (abs(kalDAngleY) > 100))comAccY = 0;
-  if((abs(kalDAngleX) > 100) || (abs(kalDAngleY) > 100))comAccZ = 0;
 
-  if(dt > 1.0)dt = 0.01;
   velX = velX + comAccX*dt;
   velY = velY + comAccY*dt;
   velZ = velZ + comAccZ*dt;
@@ -171,10 +168,12 @@ void loop()
 
   double velocity = sqrt(pow(velX,2) + pow(velY,2) + pow(velZ,2));
 
+  /*速度と角度で音を鳴らす*/
   static int fastCount = 0;
   static int middleCount = 0;
   static int slowCount = 0;
-  if(velocity > 1000){
+  //
+  if(velocity > 600){
     fastCount += 1;
   }else if(velocity > 400){
     middleCount += 1;
@@ -187,7 +186,6 @@ void loop()
   }
 
   if(fastCount > 3){
-//    fastSound();    
     Serial.print("fast\n");
 
     if(abs(kalAngleX) > 135){
@@ -208,10 +206,8 @@ void loop()
     fastCount = -50;
     middleCount = -50;
     slowCount = -50;
-
   }
   if(middleCount > 5){
-//    middleSound();
     Serial.print("middle\n");
 
     if(abs(kalAngleX) > 135){
@@ -231,10 +227,9 @@ void loop()
 
     fastCount = -50;
     middleCount = -50;
-    slowCount = -50;    
-
+    slowCount = -50;
   }
-  if(slowCount > 15){
+  if(slowCount > 10){
     Serial.print("slow\n");
 
     if(abs(kalAngleX) > 135){
@@ -254,8 +249,39 @@ void loop()
 
     fastCount = -50;
     middleCount = -50;
+    slowCount = -50; 
+  }
+
+  /*角速度で音を鳴らす*/
+  static int lCount = 0;
+  static int rCount = 0;
+  if(kalDAngleX > 150){
+    lCount+=1;
+  }
+  else if(kalDAngleX < -150){
+    rCount+=1;    
+  }else{
+    lCount=0;
+    rCount=0;     
+  }
+  
+  if(lCount > 7){
+    soundL(100);
+    lCount=0;
+    rCount=0;
+    fastCount = -50;
+    middleCount = -50;
     slowCount = -50;
-    
+    Serial.print("l\n");
+  }
+  if(rCount > 7){
+    soundR(100);
+    lCount=0;
+    rCount=0;
+    fastCount = -50;
+    middleCount = -50;
+    slowCount = -50;
+    Serial.print("r\n");
   }
 
 /*print*/
@@ -269,7 +295,9 @@ void loop()
 //  Serial.print(kalmanY.getRate()); Serial.print("\t");
 
   Serial.print(velocity); Serial.print("\t");
-  Serial.print(dt); Serial.print("\t");
+//  Serial.print(dt); Serial.print("\t");
+//  Serial.print(kalDAngleX); Serial.print("\t");
+//  Serial.print(kalDAngleY); Serial.print("\t");
     
 //  Serial.print(roll); Serial.print("\t");
 //  Serial.print(gyroXangle); Serial.print("\t");
@@ -290,33 +318,4 @@ void loop()
 
   delay(2);
 }
-
-/*comment out*/
-//  IMUStruct diff;
-//  diff.ax = (old_imu.ax - imuValue.ax);
-//  diff.ay = (old_imu.ay - imuValue.ay);
-//  diff.az = (old_imu.az - imuValue.az);
-//  diff.gx = (old_imu.gx - imuValue.gx);
-//  diff.gy = (old_imu.gy - imuValue.gy);
-//  diff.gz = (old_imu.gz - imuValue.gz);
-//  if(diff.ax <10){diff.ax = 0;}
-//  if(diff.ay <10){diff.ay = 0;}
-//  if(diff.az <10){diff.az = 0;}
-//  if(diff.gx <10){diff.gz = 0;}
-//  if(diff.gy <10){diff.gy = 0;}
-//  if(diff.gz <10){diff.gz = 0;}  
-
-//  int absDiff = abs(diff.ax)+abs(diff.ay)+abs(diff.az); 
-//  snprintf(report, sizeof(report), "A: %d %d %d    G: %d %d %d",
-////    imu.a.x, imu.a.y, imu.a.z,
-////    imu.g.x, imu.g.y, imu.g.z    
-//
-//    imuValue.ax, imuValue.ay, imuValue.az,
-//    imuValue.gx, imuValue.gy, imuValue.gz
-////
-////    diff.ax, diff.ay, diff.az,
-////    diff.gx, diff.gy, diff.gz
-////    absDiff
-//    );
-//  Serial.println(report);
 
